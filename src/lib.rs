@@ -153,7 +153,7 @@ impl Blip {
             let mut sum = self.integrator;
 
             out.chunks_mut(chunk_size)
-                .zip(&self.buffer)
+                .zip(&self.buffer[..count as usize])
                 .for_each(|(o, v)| {
                     // Eliminate fraction
                     let s = (sum >> DELTA_BITS).clamp(MIN_SAMPLE as i32, MAX_SAMPLE as i32);
