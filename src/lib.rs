@@ -72,7 +72,14 @@ impl Blip {
         let buffer = vec![0; (sample_count + BUF_EXTRA as u32) as usize];
         const FACTOR: u64 = TIME_UNIT / BLIP_MAX_RATIO as u64;
         let offset = FACTOR / 2;
-        Self { factor: FACTOR, size: sample_count, offset, avail: 0, integrator: 0, buffer }
+        Self {
+            factor: FACTOR,
+            size: sample_count,
+            offset,
+            avail: 0,
+            integrator: 0,
+            buffer,
+        }
     }
 
     /// Sets approximate input clock rate and output sample rate. For every
@@ -114,7 +121,9 @@ impl Blip {
     ///. frame specified. Deltas can have been added slightly past clock_duration (up to
     /// however many clocks there are in two output samples).
     pub fn end_frame(&mut self, clock_duration: u32) {
-        let off = (clock_duration as u64).wrapping_mul(self.factor).wrapping_add(self.offset);
+        let off = (clock_duration as u64)
+            .wrapping_mul(self.factor)
+            .wrapping_add(self.offset);
         self.avail = (self.avail).wrapping_add((off >> TIME_BITS) as u32);
         self.offset = off & (TIME_UNIT - 1);
 
@@ -126,7 +135,8 @@ impl Blip {
         let remain = self.avail + (BUF_EXTRA as u32) - count;
         self.avail -= count;
 
-        self.buffer.copy_within(count as usize..(count + remain) as usize, 0);
+        self.buffer
+            .copy_within(count as usize..(count + remain) as usize, 0);
         self.buffer[remain as usize..(remain + count) as usize].fill(0);
     }
 
@@ -142,15 +152,17 @@ impl Blip {
             let chunk_size = if stereo { 2 } else { 1 };
             let mut sum = self.integrator;
 
-            out.chunks_mut(chunk_size).zip(&self.buffer).for_each(|(o, v)| {
-                // Eliminate fraction
-                let s = (sum >> DELTA_BITS).clamp(MIN_SAMPLE as i32, MAX_SAMPLE as i32);
-                o[0] = s as i16;
+            out.chunks_mut(chunk_size)
+                .zip(&self.buffer)
+                .for_each(|(o, v)| {
+                    // Eliminate fraction
+                    let s = (sum >> DELTA_BITS).clamp(MIN_SAMPLE as i32, MAX_SAMPLE as i32);
+                    o[0] = s as i16;
 
-                sum = sum.wrapping_add(*v);
-                // High-pass filter
-                sum = sum.wrapping_sub(s << (DELTA_BITS - BASS_SHIFT));
-            });
+                    sum = sum.wrapping_add(*v);
+                    // High-pass filter
+                    sum = sum.wrapping_sub(s << (DELTA_BITS - BASS_SHIFT));
+                });
 
             self.integrator = sum;
             self.remove_samples(count);
@@ -161,7 +173,9 @@ impl Blip {
 
     /// Adds positive/negative delta into buffer at specified clock time.
     pub fn add_delta(&mut self, clock_time: u32, delta: i32) {
-        let fixed = ((clock_time as u64).wrapping_mul(self.factor).wrapping_add(self.offset)
+        let fixed = ((clock_time as u64)
+            .wrapping_mul(self.factor)
+            .wrapping_add(self.offset)
             >> PRE_SHIFT) as u32;
         let out = self.avail + (fixed >> FRAC_BITS);
 
@@ -179,17 +193,25 @@ impl Blip {
         assert!(out <= (self.size + END_FRAME_EXTRA as u32));
 
         let out = out as usize;
-        self.buffer[out..(out + 8)].iter_mut().enumerate().for_each(|(i, v)| {
-            *v = v.wrapping_add(in_0[i] as i32 * delta + in_1[i] as i32 * delta2);
-        });
-        self.buffer[(out + 8)..(out + 16)].iter_mut().enumerate().for_each(|(i, v)| {
-            *v = v.wrapping_add(rev_0[7 - i] as i32 * delta + rev_1[7 - i] as i32 * delta2);
-        });
+        self.buffer[out..(out + 8)]
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i, v)| {
+                *v = v.wrapping_add(in_0[i] as i32 * delta + in_1[i] as i32 * delta2);
+            });
+        self.buffer[(out + 8)..(out + 16)]
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i, v)| {
+                *v = v.wrapping_add(rev_0[7 - i] as i32 * delta + rev_1[7 - i] as i32 * delta2);
+            });
     }
 
     /// Same as `add_delta`, but uses faster, lower-quality synthesis.
     pub fn add_delta_fast(&mut self, clock_time: u32, delta: i32) {
-        let fixed = ((clock_time as u64).wrapping_mul(self.factor).wrapping_add(self.offset)
+        let fixed = ((clock_time as u64)
+            .wrapping_mul(self.factor)
+            .wrapping_add(self.offset)
             >> PRE_SHIFT) as u32;
         let out = self.avail + (fixed >> FRAC_BITS);
 
